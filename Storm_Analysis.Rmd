@@ -1,0 +1,432 @@
+---
+title: "Weather events with the greatest health and economic impacts across the
+United States, from 1995-2011"
+output: html_document
+---
+
+#Synopsis
+
+This report aims to answer the question, "which types of storms have the 
+greatest health and economic impact?"
+
+Data was gathered from the U.S. National Oceanic and Atmospheric Administration 
+(NOAA) storm database. Specifically, data indicating the  type, date, numbers of 
+fatalities and injuries, and extent of property and crop  damage for a given 
+storm was used to answer the question.
+
+Analysis of the data indicates that storms characterized as Hurricanes/Typhoons
+have the most negative economic impact, principally in the form of property 
+damage, and those characterized as Floods have the most negative impact on the
+health of a population, principally through fatalities. Closer investigation
+reveals that 72% of total economic damage is caused by one type of storm - 
+Hurricane/Typhoon, and 80% of total health damage is caused by three types of 
+storms - Floods, Tornadoes, and Hurricane/Typhoons. It is interesting to note 
+that the most economically damaging storms are not necessarily the most life
+-threatening storms. 
+
+Finally, deeper examination of the Hurricane/Typhoon category shows that the
+economic damage caused by Hurricane/Typhoons from 1995-2011 was most likely
+skewed by one hurricane which ended on August 29, 2005 - which is also the end
+date of Hurricane Katrina.
+
+The code and figures providing evidence and more detailed discussion of the 
+possible conclusions suggested here are found below.
+
+---
+
+##Results
+
+The data was analyzed for overall damage to health - by fatality or injury - and
+overall damage to economy - through property or crop damage. A panel of 
+histograms was created (using ggplot2) to look at the sum of health vs. economic
+damages caused by a given weather event.
+
+NOTE: The below code allows for manipulation of the x-axis, whereby the histogram
+bars are ordered in decreasing frequency.
+
+```{r test, echo=TRUE, cache=TRUE}
+#Use for generating factor levels when ordering weather events in qplot
+
+healthSums <- stormdata[DamageType == "Health"][, sum(Damage), by = Event]
+economicSums <- stormdata[DamageType == "Economic"][, sum(Damage), by = Event]
+sums <- merge(healthSums, economicSums, by = "Event")
+setnames(sums, old = c("V1.x", "V1.y"), new = c("healthSums", "economicSums"))
+stormdata <- merge(stormdata, sums, by = "Event")
+
+count <- data.frame(table(stormdata$Event))
+setnames(count, old = "Var1", new = "Event")
+stormdata <- merge(x = stormdata, y = count, by = "Event")
+```
+
+```{r results2, echo=TRUE, cache=TRUE, eval=TRUE}
+healthFactLvls <- sums[order(healthSums, decreasing = TRUE)]$Event
+economicFactLvls <- sums[order(economicSums, decreasing = TRUE)]$Event
+
+ggplot(data = stormdata, aes(fill = EventType, alpha = DamageType2, 
+                             weight = Damage, color = EventType)) +
+        geom_bar(data = stormdata[DamageType == "Health"], 
+                 aes(x = factor(Event, levels = healthFactLvls))) +
+        geom_bar(data = stormdata[DamageType == "Economic"], 
+                 aes(x = factor(Event, levels = economicFactLvls))) +
+        facet_wrap(~ DamageType, scales = "free") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 6),
+              panel.background = element_rect("white")) +
+        scale_fill_hue(l = 45) +
+        labs(x = "Storm Type", 
+             y = "Total Damage",
+             title = "Total Damage per Storm Type, by type of consequence")
+```
+
+In the above plots, total damage, expressed in dollars for the economic data
+and counts for the health data, is graphed against weather event. Each bar is
+stacked to show the sum of crop and property damage in the case of the economic
+data and fatalities and injuries in the case of the health data. Shading has
+been applied to demarcate these stacked values. Further, colors have been
+applied to the umbrella categories of weather events: Flood, Heat, Rain, Wind, 
+and Winter.
+
+As the histograms clearly indicate, weather events falling under the category
+"Hurricane/Typhoon" have the most harmful economic consequences, primarily in 
+the form of property damage. Weather events falling under the category 
+"Flood" have the most harmful health consequences, primarily in the form of
+fatalities.
+
+It is interesting to note that the most harmful weather events with respect to
+human lives are not the most harmful weather events with respect to property. 
+Further, the data reflecting economic consequences is heavily skewed right, 
+begging the question as to what has caused the skew. Is the **number** of 
+hurricanes in the US from 1995-2011 dramatically greater than any other weather 
+event, or is the **impact** of a few hurricanes large enough to offset that of 
+other events?
+
+To address this question, the data was graphed in a different manner, to reflect 
+the frequency of each weather event as well.
+
+```{r results3, echo=TRUE, cache=TRUE, eval=TRUE}
+ggplot(stormdata) +
+        geom_point(data = stormdata[DamageType == "Health"],
+                   aes(x = Event, y = healthSums, color = EventType, 
+                       size = Freq)) +
+        geom_point(data = stormdata[DamageType == "Economic"],
+                   aes(x = Event, y = economicSums, color = EventType, 
+                       size = Freq)) +
+        facet_wrap(~ DamageType, scales = "free") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 6)) +
+        scale_fill_hue(l = 45) +
+        labs(x = "Storm Type",
+             y = "Total Damage",
+             title = "Total Damage per Storm Type, by type of consequence")
+```
+
+In the above plots, total damages are again plotted against weather event. In 
+this graph, color indicates the umbrella categories of weather events, and the 
+size of each point indicates the frequency of a given weather event.
+
+The graphs show that Tornados have occured with the greatest frequency across
+the US. However, the greatest amount of damage is not caused by tornadoes 
+either in economic or in health terms. In fact, the event type with the 
+greatest economic damage - Hurricane/Typhoon - has a very low frequency. 
+Similarly the event type with the greatest health damage - Flood - has a low
+frequency as well. Further, the Hurricane/Typhoon category accounts for 72% of 
+total economic damage and the Flood, Tornado, and Hurricane/Typhoon categories 
+account for 80% of total health damage. Thus, it is clear that frequency of 
+weather events does not necessarily translate to greatest damage.
+
+According to closer examination of the hurricane/typhoon data, there have 
+been 12 events in this category from 1995-2011. The event which caused the
+greatest property damage ended on 08-29-2005 - the date of Hurricane Katrina's
+second landfall, just before it was downgraded to a tropical storm. This is 
+likely the event which is skewing the data.  
+
+```{r results4, echo=TRUE, cache=TRUE, eval=TRUE}
+stormdata[Event == "HURRICANE/TYPHOON"][which(Damage == max(Damage))]
+
+econTot <- sum(stormdata[DamageType == "Economic"]$Damage)
+healthTot <- sum(stormdata[DamageType == "Health"]$Damage)
+
+econ <- function(x){
+        (x/econTot)*100
+}
+
+health <- function(x){
+        (x/healthTot)*100
+}
+
+unique(stormdata[, econ(economicSums), by = Event][order(-V1)])
+unique(stormdata[, health(healthSums), by = Event][order(-V1)])
+```
+
+---
+
+##Data Processing
+
+###Loading data into R
+
+The data was downloaded and read into R using the code below. 
+
+```{r setup, echo=TRUE, cache=TRUE}
+library(data.table)
+library(lattice)
+library(ggplot2)
+options(datatable.print.topn = 5)
+
+setwd("F:/Data_science_coursera/Reproducible_Research/Storm_Analysis")
+```
+
+```{r loading, echo=TRUE, cache=TRUE}
+download.file(url = "http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+              destfile = "storm.csv")
+```
+
+###Pre-processing
+
+The data was stored as a data table using the data.table package, to ease 
+manipulation. After reading in the data, some exploratory data analysis was 
+conducted to see the dimensions of the data table, assess for missing values, 
+and understand more about the variables.
+
+```{r pre-processing, echo=TRUE, cache=TRUE}
+data <- read.csv("storm.csv")
+```
+
+```{r pre-processing2, echo=TRUE, cache=TRUE}
+dim(data)
+names(data)
+```
+
+The raw data requires a significant amount of cleaning for the purpose of this 
+analysis, which focuses on the population health and economic consequences of 
+storm events across the US. 
+
+The code description is contained in the descriptive document which can be 
+downlaoded here: 
+https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf
+
+This information was used to select the following variables as relevant to 
+retain in the dataset:
+
+* (2) BGN_DATE: Date and time the weather event began
+* (8) EVTYPE: Type of storm
+* (12) END_DATE: Date and time the weather event ended
+* (23) FATALITIES: Number of fatalities resulting from storm
+* (24) INJURIES: Number of injuries resulting from storm
+* (25) PROPDMG: Number value of amount of property damage
+* (26) PROPDMGEXP: Coefficient correlating to 10^3 (K), 10^6 (M), or 10^9 (B) 
+                        times the number value for property damage
+* (27) CROPDMG: Number value of amount of crop damage
+* (28) CROPDMGEXP: Coefficient correlating to 10^3 (K), 10^6 (M), or 10^9 (B) 
+                        times the number value for crop damage
+                        
+The information on dates was retained primarily for exploratory reasons, as the
+codebook indicated that information has been generally missing in early years.
+
+```{r pre-processing3, echo=TRUE, cache=TRUE}
+stormdata <- data.table(data[c(2, 8, 12, 23:28)])
+```
+
+The data was examined for NA values, which were not found.
+
+```{r pre-processing4, echo=TRUE, cache=TRUE}
+tables()
+length(which(is.na(stormdata) == TRUE))
+stormdata
+```
+
+Transformation on the data was performed with respect to three variables 
+(1) year, (2) weather event, and (3) damages. As the below code will show, these
+variables were both cleaned for invalid/unnecessary observations and transformed 
+for better analysis. 
+
+(1) Only data for years with the most reliable and complete information 
+(according to the codebook and the below exploratory data analysis) was kept.
+(2) Only weather events which resulted in damages, either in the form of 
+fatality, injury, property damage, or crop damage were kept. The weather events 
+were also grouped under the umbrella categories, Heat, Flood, Rain, Wind, and 
+Winter.
+(3) Only valid entries for the property and crop damage factor of ten (K M or B, 
+according to the codebook) were retained. All damages (fatality, injury, 
+property and crop) were also combined into one variable with four levels.
+
+NOTE: As the below code will indicate, the damages variables were cleaned as a 
+consequence of cleaning the events variable. For this reason, the events 
+variable was cleaned first.
+
+###Transforming the data - *years*
+
+The data was transformed so that the date variables could be examined for the
+most useful years to study. The times have been removed as that level of 
+specificity is not necessary for the analysis in this report.
+
+```{r transformation, echo=TRUE, cache=TRUE}
+stormdata$BGN_DATE <- as.Date(stormdata$BGN_DATE, format = "%m/%d/%Y")
+stormdata$END_DATE <- as.Date(stormdata$END_DATE, format = "%m/%d/%Y")
+
+beginYr <- as.numeric(format(stormdata$BGN_DATE, "%Y"))
+endYr <- as.numeric(format(stormdata$END_DATE, "%Y"))
+
+bYears <- data.table("Date" = beginYr, 
+                      "BGN.END" = rep("BEG", length(beginYr)))
+eYears <- data.table("Date" = endYr, 
+                    "BGN.END" = rep("END", length(endYr)))
+years <- rbind(bYears, eYears)
+years
+histogram(~Date|BGN.END, data = years, type = "density", 
+          scales = list(x = list(at = seq(1950, 2010, by = 5), rot = 45)),
+          main = "Density of datapoints per year", xlab = "Year")
+```
+
+The above histograms show the density of recorded datapoints per year.
+
+The figure clearly show that in the years prior to 1995, beginning date entries 
+were more sparse, and end date entries were mostly non-existent. Thus, the most 
+complete information is available for years after 1995. The data was then 
+subsetted for 1995 onwards. The end date was  arbitrarily selected as the 
+criterion for subsetting and for marking the event. As such, a given weather 
+event in this analsyis is measured by the date it subsided.
+
+```{r transformation2, echo=TRUE, cache=TRUE}
+stormdata <- stormdata[which(as.numeric(format(END_DATE, "%Y")) >= 1995)]
+stormdata$BGN_DATE <- NULL
+setcolorder(stormdata, c("END_DATE", "EVTYPE", "FATALITIES", 
+                         "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", 
+                         "CROPDMGEXP"))
+setnames(stormdata, old = names(stormdata), new = c("Date", "Event",
+                                                    "Fatalities", "Injuries",
+                                                    "Propdamage", "PROPDMGEXP",
+                                                    "Cropdamage", "CROPDMGEXP"))
+rm(bYears)
+rm(eYears)
+rm(years)
+tables()
+```
+
+###Transforming the data - *events*
+The Event variable was examined for unnecessary information and for overall
+categories. 
+
+```{r transformation3, echo=TRUE, cache=TRUE}
+length(unique(stormdata$Event))
+head(unique(stormdata$Event))
+tail(unique(stormdata$Event))
+```
+
+As this analysis focuses on the health and economic consequences of
+a given weather event, those observations referring to summaries were removed
+from the dataset, as were those resulting in none of the following: fatalities, 
+injuries, property damage, or crop damage.
+
+```{r transformation4, echo=TRUE, cache=TRUE}
+stormdata <- stormdata[!grep("Summary", Event)]
+
+setkey(stormdata, Event)
+
+stormdata <- stormdata[which(Fatalities > 0 & Injuries > 0 & Propdamage > 0 & 
+                                     Cropdamage > 0)]
+tables()
+
+unique(stormdata$Event)
+```
+
+The resulting list of 86 events were transformed to lump events with very 
+similar notation together (i.e. TSTM WIND was grouped with Thunderstorm wind, 
+Hurricane/Typhoon was grouped with Hurricane, and Excessive heat was grouped 
+with Heat.) A factor variable was also added tothe data, providing an umbrella 
+category for the weather event. The following umbrella categories were applied, 
+by studying the remaining event types in the dataset, the original guidelines 
+provided to data collectors in the codebook, and research on the National 
+Oceanic and Atmospheric Administration site (http://www.NOAA.gov):
+
+* Heat events (HEAT, HEAT WAVE DROUGHT, WILDFIRE)
+* Flood events (FLOOD, FLASH FLOOD, TSUNAMI)
+* Rain events (HURRICANE/TYPHOON, TROPICAL STORM)
+* Wind events (HIGH WIND, THUNDERSTORM WIND, TORNADO, WINTER STORM HIGH WINDS)
+* Winter events (HEAVY SNOW, WINTER STORM)
+
+```{r transformation5, echo=TRUE, cache=TRUE}
+stormdata[Event == "TSTM WIND"]$Event <- "THUNDERSTORM WIND"
+stormdata[Event == "HURRICANE"]$Event <- "HURRICANE/TYPHOON"
+stormdata[Event == "EXCESSIVE HEAT"]$Event <- "HEAT"
+unique(stormdata$Event)
+
+stormdata$EventType <- ""
+
+Heat <- c("HEAT", "HEAT WAVE DROUGHT", "WILDFIRE")
+Flood <- c("FLOOD", "FLASH FLOOD", "TSUNAMI")
+Rain <- c("HURRICANE/TYPHOON", "TROPICAL STORM")
+Wind <- c("HIGH WIND", "THUNDERSTORM WIND", "TORNADO", "WINTER STORM HIGH WINDS")
+Winter <- c("HEAVY SNOW", "WINTER STORM")
+
+stormdata[Event%in%Heat]$EventType <- "Heat"
+stormdata[Event%in%Flood]$EventType <- "Flood"
+stormdata[Event%in%Rain]$EventType <- "Rain"
+stormdata[Event%in%Wind]$EventType <- "Wind"
+stormdata[Event%in%Winter]$EventType <- "Winter"
+
+stormdata$EventType <- as.factor(stormdata$EventType)
+head(stormdata)
+tail(stormdata)
+```
+
+###Transforming the data - *damages*
+
+The data on damages was transformed in two ways: (1) to correct the economic 
+damages (property and crop damage) for the factor of ten provided in the 
+variables PROPDMGEXP and CROPDMGEXP, and (2) to combine the damage variables
+as one variable with four levels: Fatality, Injury, Property and Crop.
+These transformations were performed to allow for more elegant graphical 
+analysis.
+
+(1) Correcting for factor of 10 in economic damages
+
+```{r transformation6, echo=TRUE, cache=TRUE}
+unique(stormdata$PROPDMGEXP)
+unique(stormdata$CROPDMGEXP)
+
+stormdata$PEXP <- 0
+stormdata$CEXP <- 0
+
+stormdata[PROPDMGEXP == "K"]$PEXP <- 10^3
+stormdata[PROPDMGEXP == "M"]$PEXP <- 10^6
+stormdata[PROPDMGEXP == "B"]$PEXP <- 10^9
+
+stormdata[CROPDMGEXP == "K"]$CEXP <- 10^3
+stormdata[CROPDMGEXP == "M"]$CEXP <- 10^6
+stormdata[CROPDMGEXP == "B"]$CEXP <- 10^9
+
+stormdata$Propdamage <- stormdata$Propdamage*stormdata$PEXP
+stormdata$Cropdamage <- stormdata$Cropdamage*stormdata$CEXP
+
+stormdata$PROPDMGEXP <- NULL
+stormdata$CROPDMGEXP <- NULL
+stormdata$PEXP <- NULL
+stormdata$CEXP <- NULL
+
+damages <- rbind(data.table("Damage" = stormdata$Fatalities,
+                            "DamageType" = "Health",
+                            "DamageType2" = "Fatality"), 
+                 data.table("Damage" = stormdata$Injuries,
+                            "DamageType" = "Health",
+                            "DamageType2" = "Injury"),
+                 data.table("Damage" = stormdata$Propdamage,
+                            "DamageType" = "Economic",
+                            "DamageType2" = "Property"),
+                 data.table("Damage" = stormdata$Cropdamage,
+                            "DamageType" = "Economic",
+                            "DamageType2" = "Crop"))
+
+stormdata <- cbind(stormdata, damages)
+
+stormdata$Fatalities <- NULL
+stormdata$Injuries <- NULL
+stormdata$Propdamage <- NULL
+stormdata$Cropdamage <- NULL
+
+stormdata$DamageType <- as.factor(stormdata$DamageType)
+stormdata$DamageType2 <- as.factor(stormdata$DamageType2)
+```
+
+The final dataset is completely clean.
+
+```{r transformation7, echo=TRUE, cache=TRUE}
+stormdata
+```
